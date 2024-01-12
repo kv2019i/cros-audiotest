@@ -15,6 +15,8 @@
 
 #define CHANNELS_MAX 16
 
+#define PLOT_AVAIL_UPDATES 1
+
 extern int DEBUG_MODE;
 extern int SINGLE_THREAD;
 extern int STRICT_MODE;
@@ -255,6 +257,9 @@ void dev_thread_start_playback(struct dev_thread *thread,
 	struct timespec time_diff;
 	double rate;
 	int merged = 0;
+#if PLOT_AVAIL_UPDATES
+	int avail_checks = 0;
+#endif
 
 	handle = thread->handle;
 	timer = thread->timer;
@@ -273,6 +278,11 @@ void dev_thread_start_playback(struct dev_thread *thread,
 			block_size, buffer_size);
 		exit(EXIT_FAILURE);
 	}
+
+#if PLOT_AVAIL_UPDATES
+	fprintf(stderr, "Time(msec) Delta(msec) AvailChecks Wrote-Left(samples) Nominal(Samples) Avail-Diff(Samples)\n");
+	memset(&prev, 0, sizeof(prev));
+#endif
 
 	/* We need to allocate a zero buffer which will be written into device. */
 	buf = (uint8_t *)calloc(block_size * 2,
@@ -311,6 +321,10 @@ void dev_thread_start_playback(struct dev_thread *thread,
 	while (1) {
 		frames_avail = alsa_helper_avail(timer, handle);
 
+#if PLOT_AVAIL_UPDATES
+                ++avail_checks;
+#endif
+
 		frames_left = buffer_size - frames_avail;
 
 		/*
@@ -325,7 +339,23 @@ void dev_thread_start_playback(struct dev_thread *thread,
 			subtract_timespec(&relative_ts, &ori);
 			merged = recorder_add(recorder, relative_ts,
 					      frames_played);
-			/* In debug mode, print each point in details. */
+
+#if PLOT_AVAIL_UPDATES
+			time_diff = now;
+			subtract_timespec(&time_diff, &prev);
+
+			fprintf(stderr, "%lf %lf %6d %10ld %lf %10ld\n",
+				timespec_to_s(&relative_ts) * 1000.0f,
+				timespec_to_s(&time_diff) * 1000.0f,
+				avail_checks,
+				frames_written - frames_left,
+				timespec_to_s(&relative_ts) * thread->rate,
+				frames_diff);
+
+			avail_checks = 0;
+#endif
+
+                        /* In debug mode, print each point in details. */
 			if (DEBUG_MODE) {
 				time_diff = now;
 				subtract_timespec(&time_diff, &prev);
@@ -346,6 +376,11 @@ void dev_thread_start_playback(struct dev_thread *thread,
 				free(time_str);
 				prev = now;
 			}
+
+#if PLOT_AVAIL_UPDATES
+			prev = now;
+#endif
+
 		}
 
 		/*
@@ -410,6 +445,9 @@ void dev_thread_start_capture(struct dev_thread *thread,
 	struct timespec time_diff;
 	double rate;
 	int merged = 0;
+#if PLOT_AVAIL_UPDATES
+	int avail_checks = 0;
+#endif
 
 	handle = thread->handle;
 	timer = thread->timer;
@@ -455,21 +493,47 @@ void dev_thread_start_capture(struct dev_thread *thread,
 		       "READ", "RATE");
 	}
 
+#if PLOT_AVAIL_UPDATES
+	fprintf(stderr, "Time(msec) Delta(msec) AvailChecks Read+Avail(samples) Nominal(Samples) Avail-Diff(Samples)\n");
+	memset(&prev, 0, sizeof(prev));
+#endif
+
 	while (frames_read < frames_to_read) {
 		frames_avail = alsa_helper_avail(timer, handle);
 
-		/* Check overrun. */
+#if PLOT_AVAIL_UPDATES
+                        ++avail_checks;
+#endif
+
+                        /* Check overrun. */
 		if (frames_avail > buffer_size)
 			thread->overrun_count++;
 
 		if (frames_avail != old_frames_avail) {
 			frames_diff = frames_avail - old_frames_avail;
+
 			old_frames_avail = frames_avail;
+
 			clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 			relative_ts = now;
 			subtract_timespec(&relative_ts, &ori);
 			merged = recorder_add(recorder, relative_ts,
 					      frames_read + frames_avail);
+
+#if PLOT_AVAIL_UPDATES
+			time_diff = now;
+			subtract_timespec(&time_diff, &prev);
+
+			fprintf(stderr, "%lf %lf %6d %10ld %lf %10ld\n",
+				timespec_to_s(&relative_ts) * 1000.0f,
+				timespec_to_s(&time_diff) * 1000.0f,
+				avail_checks,
+				frames_read + frames_avail,
+				timespec_to_s(&relative_ts) * thread->rate,
+				frames_diff);
+
+			avail_checks = 0;
+#endif
 			/* Read blocks if there are enough frames in a device. */
 			while (old_frames_avail >= block_size) {
 				if (alsa_helper_read(handle, buf, block_size) <
@@ -498,6 +562,10 @@ void dev_thread_start_capture(struct dev_thread *thread,
 				free(time_str);
 				prev = now;
 			}
+#if PLOT_AVAIL_UPDATES
+			prev = now;
+#endif
+
 		}
 	}
 	alsa_helper_drop(handle);
