@@ -238,6 +238,7 @@ void dev_thread_start_playback(struct dev_thread *thread,
 	snd_pcm_uframes_t block_size;
 	snd_pcm_uframes_t frames_to_write;
 	snd_pcm_sframes_t frames_avail;
+        snd_pcm_sframes_t frames_delay;
 	snd_pcm_sframes_t frames_written;
 	snd_pcm_sframes_t frames_left;
 	snd_pcm_sframes_t frames_played;
@@ -299,8 +300,8 @@ void dev_thread_start_playback(struct dev_thread *thread,
 
 	if (DEBUG_MODE) {
 		prev = ori;
-		logger("%-13s %10s %10s %10s %18s\n", "TIME_DIFF(s)",
-		       "HW_LEVEL", "PLAYED", "DIFF", "RATE");
+		logger("%-13s %10s %10s %10s %18s %10s\n", "TIME_DIFF(s)",
+		       "HW_LEVEL", "PLAYED", "DIFF", "RATE", "DELAY");
 	}
 
 	/*
@@ -309,7 +310,9 @@ void dev_thread_start_playback(struct dev_thread *thread,
      * multithread test in the future.
      */
 	while (1) {
-		frames_avail = alsa_helper_avail(timer, handle);
+		if (alsa_helper_avail_delay(timer, handle, &frames_avail, &frames_delay)) {
+			exit(EXIT_FAILURE);
+		}
 
 		frames_left = buffer_size - frames_avail;
 
@@ -333,15 +336,15 @@ void dev_thread_start_playback(struct dev_thread *thread,
 				rate = (double)frames_diff /
 				       timespec_to_s(&time_diff);
 				if (!merged) {
-					logger("%-13s %10ld %10ld %10ld %18lf\n",
+					logger("%-13s %10ld %10ld %10ld %18lf %10ld\n",
 					       time_str, frames_left,
 					       frames_played, frames_diff,
-					       rate);
+					       rate, frames_delay);
 				} else {
-					logger("%-13s %10ld %10ld %10ld %18lf [Merged]\n",
+					logger("%-13s %10ld %10ld %10ld %18lf %10ld [Merged]\n",
 					       time_str, frames_left,
 					       frames_played, frames_diff,
-					       rate);
+					       rate, frames_delay);
 				}
 				free(time_str);
 				prev = now;
