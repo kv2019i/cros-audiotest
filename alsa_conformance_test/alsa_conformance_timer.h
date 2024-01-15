@@ -19,6 +19,7 @@ enum ALSA_API {
 	SND_PCM_PREPARE,
 	SND_PCM_START,
 	SND_PCM_AVAIL,
+        SND_PCM_AVAIL_DELAY,
 	ALSA_API_COUNT /* Keep it in the last line to count total amounts. */
 };
 
@@ -36,6 +37,7 @@ static inline const char *alsa_api_str(enum ALSA_API api)
 		ENUM_STR(SND_PCM_PREPARE)
 		ENUM_STR(SND_PCM_START)
 		ENUM_STR(SND_PCM_AVAIL)
+		ENUM_STR(SND_PCM_AVAIL_DELAY)
 	default:
 		return "INVALID_API";
 	}

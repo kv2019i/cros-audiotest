@@ -173,6 +173,20 @@ int alsa_helper_drop(snd_pcm_t *handle);
 snd_pcm_sframes_t alsa_helper_avail(struct alsa_conformance_timer *timer,
 				    snd_pcm_t *handle);
 
+/* Return number of frames ready to be read (capture) / written
+ * (playback) and matching readout of PCM delay. A thin wrapper to
+ * snd_pcm_avail_delay.
+ * Args:
+ *    timer - A pointer to timer which records the runtime of ALSA APIs.
+ *    handle - The open PCM to configure.
+ *    availp - A pointer to resutl avail frames value
+ *    delayp - A pointer to resutl delay frames value
+ * Returns:
+ *    0 on success, negative error on failure.
+ */
+int alsa_helper_avail_delay(struct alsa_conformance_timer *timer, snd_pcm_t *handle,
+			    snd_pcm_sframes_t *availp, snd_pcm_sframes_t *delayp);
+
 /* Write samples to pcm using mmap.
  * Args:
  *    handle - The open PCM to configure.

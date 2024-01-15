@@ -525,6 +525,22 @@ snd_pcm_sframes_t alsa_helper_avail(struct alsa_conformance_timer *timer,
 	return rc;
 }
 
+int alsa_helper_avail_delay(struct alsa_conformance_timer *timer, snd_pcm_t *handle,
+			    snd_pcm_sframes_t *availp, snd_pcm_sframes_t *delayp)
+{
+	int rc;
+
+	conformance_timer_start(timer, SND_PCM_AVAIL_DELAY);
+	rc = snd_pcm_avail_delay(handle, availp, delayp);
+	conformance_timer_stop(timer, SND_PCM_AVAIL_DELAY);
+	if (rc < 0) {
+		fprintf(stderr, "snd_pcm_avail_delay: %s\n", snd_strerror(rc));
+		return rc;
+	}
+
+	return rc;
+}
+
 int alsa_helper_write(snd_pcm_t *handle, uint8_t *buf, snd_pcm_uframes_t size)
 {
 	const snd_pcm_channel_area_t *my_areas;
