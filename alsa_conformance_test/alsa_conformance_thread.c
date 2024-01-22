@@ -243,6 +243,8 @@ void dev_thread_start_playback(struct dev_thread *thread,
 	snd_pcm_sframes_t frames_left;
 	snd_pcm_sframes_t frames_played;
 	snd_pcm_sframes_t frames_diff;
+	snd_pcm_sframes_t frames_played_adj = 0;
+	snd_pcm_sframes_t frames_played_adj_diff;
 	snd_pcm_t *handle;
 	struct timespec now;
 	struct timespec ori;
@@ -300,8 +302,8 @@ void dev_thread_start_playback(struct dev_thread *thread,
 
 	if (DEBUG_MODE) {
 		prev = ori;
-		logger("%-13s %10s %10s %10s %18s %10s\n", "TIME_DIFF(s)",
-		       "HW_LEVEL", "PLAYED", "DIFF", "RATE", "DELAY");
+		logger("%-13s %10s %10s %10s %18s %10s %10s %10s\n", "TIME_DIFF(s)",
+		       "HW_LEVEL", "PLAYED", "DIFF", "RATE", "DELAY", "PLAYED_ADJ", "DIFF");
 	}
 
 	/*
@@ -323,6 +325,9 @@ void dev_thread_start_playback(struct dev_thread *thread,
 			frames_diff =
 				frames_written - frames_left - frames_played;
 			frames_played = frames_written - frames_left;
+
+			frames_played_adj_diff = frames_written - frames_delay - frames_played_adj;
+			frames_played_adj = frames_written - frames_delay;
 			clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 			relative_ts = now;
 			subtract_timespec(&relative_ts, &ori);
@@ -336,15 +341,17 @@ void dev_thread_start_playback(struct dev_thread *thread,
 				rate = (double)frames_diff /
 				       timespec_to_s(&time_diff);
 				if (!merged) {
-					logger("%-13s %10ld %10ld %10ld %18lf %10ld\n",
+					logger("%-13s %10ld %10ld %10ld %18lf %10ld %10ld %10ld\n",
 					       time_str, frames_left,
 					       frames_played, frames_diff,
-					       rate, frames_delay);
+					       rate, frames_delay,
+					       frames_played_adj, frames_played_adj_diff);
 				} else {
-					logger("%-13s %10ld %10ld %10ld %18lf %10ld [Merged]\n",
+					logger("%-13s %10ld %10ld %10ld %18lf %10ld %10ld %10ld [Merged]\n",
 					       time_str, frames_left,
 					       frames_played, frames_diff,
-					       rate, frames_delay);
+					       rate, frames_delay,
+					       frames_played_adj, frames_played_adj_diff);
 				}
 				free(time_str);
 				prev = now;
